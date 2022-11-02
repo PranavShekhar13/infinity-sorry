@@ -1,371 +1,232 @@
 /*
-  This is a merge of multiple files.
-  I will put the source code on github after I refine the structure a bit.
+  Still to do:
+  - Make the animation time based so it can run faster and not frame rate dependant
+  - Make the thicknes bigger on random areas of the leminescate
 */
-if(!Animations) var Animations = new Object();
 
-Animations.InfinityLoop = function() {
-	
-	var loops = [];
-	var loopsCount = 70;
-
-	for(var i=1; i<=loopsCount; i++) {
-		loops.push(new Objects.InfiniteLoop());
-	}
-	
-	this.init = function(application) {
-		//Initialize the scene objects for this animation
-		for(var i=0; i<loops.length; i++) {
-		
-			application.getScene().add(loops[i].getObject3D());
-			
-			
-		}
-
-	}
-
-    this.tick = function(timestamp, application) {
-       	for(var i=0; i<loops.length; i++) {
-			loops[i].update(timestamp);
-		}
-    }
-}
-
-;/**
- * Created by ionescusilviuciprian on 11/09/15.
- */
-function Animation (app) {
-    console.log(app);
-
-    if(!app) throw "Animation needs an app to bind to.";
-
-    var tickCallbacks = new Array();
-    var runTickCallbacks = function(timestamp) {
-
-        for(i in tickCallbacks) {
-            tickCallbacks[i].tick(timestamp, app);
-        }
-    }
-
-    var render = function(timestamp) {
-
-        runTickCallbacks(timestamp);
-        requestAnimationFrame( render );
-
-        app.getControl().update();
-        app.getRenderer().render( app.getScene(), app.getCamera() );
-    }
-
-    this.addTickCallback = function(AnimationClass) {
-        tickCallbacks.push(AnimationClass);
-        if(AnimationClass.init) AnimationClass.init(app);
-    }
-
-    this.render = function() {
-        render();
-    }
-
-    return this;
-}
-;function App() {
-
-	var scene = new THREE.Scene();
-	var camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
-	var renderer = new THREE.WebGLRenderer({ 
-		antialias: true,
-		alpha: true,
-		precision: 'highp',
-		devicePixelRatio: window.devicePixelRatio || 1
-    });
-
-	var self = this;
-
-	pixelRatio = window.devicePixelRatio || 1;
-
-	renderer.setSize( window.innerWidth * pixelRatio, window.innerHeight * pixelRatio);
-$("#content img").remove();	document.getElementById('content').appendChild( renderer.domElement );
-	renderer.domElement.style.width = window.innerWidth + 'px';
-	renderer.domElement.style.height = window.innerHeight + 'px';
-
-	// scene.fog = new THREE.Fog(0xffffff, 0, 5);
-	// scene.fog.color.setHex( 0xe8dabe );
-
-	var controls = new THREE.TrackballControls( camera, renderer.domElement );
-	controls.minDistance = 0;
-	controls.maxDistance = 500;
-
-	// controls.enableDamping = true;
-	// controls.dampingFactor = 0.25;
-	//controls.enableZoom = true;
-
-	this.getScene = function() {return scene;}
-	this.getCamera = function() {return camera;}
-	this.getRenderer = function() {return renderer;}
-	this.getApp = function() {return self;}
-	this.getControl = function() {return controls;}
-
-
-	return self;
-}
-
-
-App.prototype.renderWorldPlane = function() {
-	//var earth = new WorldPlane(this.getScene());
-	var lighingSystem = new WorldLight(this.getScene());
-	var animation = new Animation(this.getApp());
-
-	animation.addTickCallback(new Animations.InfinityLoop());
-	//animation.addTickCallback(new Animations.InfiniteHall());
-	//animation.addTickCallback(new Animations.CameraWiggle());
-	animation.render();
-}
-
-App.prototype.initWorld = function() {
-	this.renderWorldPlane();
-	this.getCamera().position.set(0,-200,100);
-	this.getCamera().lookAt(new THREE.Vector3( 0, 0, 0));
-	//this.getCamera().rotation.z = (5*Math.PI/180);
-}
-
-;if(!Objects) var Objects = new Object();
-
-function pow(val, exp) {
-	var res = 1;
-	for(i=0;i<exp; i++){
-		res = res * val;
-	}
-	return res;
-}
-
-function square(x) {
-	return x * x;
-}
-
-function cassinian_oval(t, a, b) {
-	var M = 2 * pow(a,2) * Math.cos(2*t) + 2 * Math.sqrt((pow(-a,4)+pow(b,4)) + pow(a,4) * pow(Math.cos(2* t),2));
-
-	var M = 2 * Math.sqrt(
-			(pow(b,4) - pow(a,4)) + pow(a,4)*pow(Math.cos(2*t),2)
-		) + 
-	(2 * pow(a,2) * Math.cos(2*t));
-
-	var x = Math.sqrt(M/2) * Math.cos(t);
-	var y = Math.sqrt(M/2) * Math.sin(t);
-
-	return [x, y];
-
-}
-
+function square(x){return x*x;}
 function leminescate_of_bernoulli(t, a) {
 	var x = (a * Math.sqrt(2) * Math.cos(t)) /
 			(square(Math.sin(t)) + 1);
 	var y = (a * Math.sqrt(2) * Math.cos(t) * Math.sin(t)) /
 			(square(Math.sin(t)) + 1);
 
+  /* parametric three-leaf clover
+  x = Math.cos(3*t)*Math.cos(t)*a;
+  y = Math.cos(3*t)*Math.sin(t)*a;
+  */
+  
 	return [x, y];
 }
-
-
-Objects.InfiniteLoop = function() {
-	var granularity = 80;
-	var minVisibleRatio = 3;
-	var maxAdditionalVisibleRatio = 10;
-	var obj3d = new THREE.Object3D(); //Main container
-	//colors 0x556600
-	var coloroptions = [0x8b8091,0xfd976f,0xfbd584,0xc0cab6,0xf8ebd4];
-	var coloroptions = [0x556600,0x616646,0x46665a,0x465d66,0x66464c];
-
-	this.last_tick = 0;
-	this.speed = 1000/60;
-	this.points = [];
-	this.quads = [];
-
-	var opacity = Math.round() * .6 + .4;
-
-	var pickedColor = Math.round(Math.random()*(coloroptions.length-1));
-	
-	extruded_shape_material = new THREE.MeshBasicMaterial({
-		color : coloroptions[pickedColor],
-		opacity : .4,
-		blending : THREE.AdditiveBlending,
-		depthTest : false,
-		 transparent : true,
-		wireframe : false
-
-	});
-
-	extruded_shape_material.side = THREE.DoubleSide;
-	
-	var a=30 + Math.round(Math.random()*20);
-	//var b=30; 
-	var fullInterval = 2*Math.PI;
-	var woobleStrength = Math.floor(Math.random()*20/4);
-	var woobleDisplace = 0;// Math.random()*Math.PI*2;
-
-
-	for(t=0; t<=fullInterval; t+=fullInterval/granularity) {
-		//var cassiniPoint = cassinian_oval(t, a, b);
-		var cassiniPoint = leminescate_of_bernoulli(t, a);
-		cassiniPoint[1] *= 1.4;
-		if(cassiniPoint[0] != cassiniPoint[1])
-			yValue = Math.sin(t * woobleStrength + woobleDisplace)*10;
-			this.points.push(new THREE.Vector3(cassiniPoint[0], yValue, cassiniPoint[1]))
-	}
-
-	var percentDisplacement = Math.random();
-	var lastP2 = null;
-	for(i=0;i<this.points.length; i++) {
-		
-		var first_point = this.points[i];
-		var next_point = this.points[i+1];
-
-		if(i == this.points.length -1) {
-			next_point = this.points[0];
-		}
-		
-		var p0 = new THREE.Vector3(first_point.x , first_point.y - 2, first_point.z);
-		var p1 = new THREE.Vector3(next_point.x, next_point.y - 2, next_point.z);
-		
-		var percent = (i / (this.points.length / 100)) / 100;
-		percent -= percentDisplacement;
-		
-		var displaceSine = Math.PI * 2 * percent;
-		var yDisplacement = Math.sin(displaceSine) * (percentDisplacement * 10);
-		var zDisplacement = Math.cos(displaceSine) * (percentDisplacement * 5);
-		var xDisplacement = Math.sin(displaceSine) * (percentDisplacement * 10);
-
-
-		var p2 = new THREE.Vector3(p1.x + xDisplacement, p1.y + yDisplacement, p1.z + zDisplacement);
-		var p3 = new THREE.Vector3(p0.x + xDisplacement, p0.y + yDisplacement, p0.z + zDisplacement);
-		if(lastP2 != null) {
-			p3 = lastP2;
-		}
-		lastP2 = p2;
-
-		this.quads.push(new THREE.Mesh(new Quad(p0,p1,p2,p3), extruded_shape_material));
-	}
-
-	var quadsCount = this.quads.length;
-
-	this.ribbonLength = Math.floor(quadsCount/minVisibleRatio);
-	this.curentRibbonIndex = Math.floor(Math.random()*quadsCount);
-	
-	this.ribbon = new THREE.Object3D();
-	for(i=0; i<this.ribbonLength; i++) {
-		var extractedQuad = this.quads[this.curentRibbonIndex+i];
-		if(this.curentRibbonIndex+i<0) extractedQuad = this.quads[this.quads.length-this.curentRibbonIndex+i];
-		if(extractedQuad) this.ribbon.add(extractedQuad);
-	}
-
-	/* Draw a line for debugging purposes */
-	// var control_line_material = new THREE.LineBasicMaterial({color: 0xff0000});
-	// var infinity_geometry = new THREE.Geometry();
-	// infinity_geometry.vertices=this.points;
-	// var line = new THREE.Line( infinity_geometry, control_line_material );
-	// obj3d.add(line);
-
-	/* Add the ribbon object to the main object. It will be composed outside the scope of this constructor*/
-	obj3d.add(this.ribbon)
-
-	/* Add everything inside the object */
-	this.obj3d = obj3d;
-	return this;
+function rotate_point(pointX, pointY, originX, originY, angle, extrude) {
+  var slope = Math.atan2(pointY - originY, pointX - originX);
+  pointY = originY + Math.sin(slope) * extrude;
+  pointX = originX + Math.cos(slope) * extrude;
+  
+	angle = angle * Math.PI / 180.0;
+	return {
+		x: Math.cos(angle) * (pointX-originX) - Math.sin(angle) * (pointY-originY) + originX,
+		y: Math.sin(angle) * (pointX-originX) + Math.cos(angle) * (pointY-originY) + originY
+	};
 }
 
-Objects.InfiniteLoop.prototype.getObject3D = function(){
-	return this.obj3d;
-}
+var canvas = document.getElementsByTagName('canvas')[0];
+var ctx = canvas.getContext('2d');
 
-Objects.InfiniteLoop.prototype.update = function(tick) {
-	if(tick-this.last_tick > this.speed) {
-		this.last_tick = tick;
-		//this.ribbonLength = Math.floor(quadsCount/minVisibleRatio);
-		//this.curentRibbonIndex = Math.floor(Math.random()*quadsCount);
+/*
+  Some global variables
+*/
 
-		var lastQuad = this.ribbon.children.shift();
-		lastQuad.remove();
-		
-		this.curentRibbonIndex += 1;
-		if(this.curentRibbonIndex >= this.quads.length) this.curentRibbonIndex = 0;
-		this.ribbon.add(this.quads[this.curentRibbonIndex]); 
-		
+var center = [400,250],
+    pi = Math.PI,
+    lob = leminescate_of_bernoulli;
+/* color, maxthicknes, minthickness, maxlength*/
+var colors = [
+  ["rgba(254,121,68,0.4)", 30, 20, pi/4],
+  ["rgba(255,186,85,0.5)", 15, 10, pi/2],
+  ["rgba(151,26,22,0.5)",  10, 8,  pi],
+  ["rgba(250,250,240,0.8)", 10, 4, 1.5*pi],
+  ["rgba(50,11,4,0.7)",     5, 3,  1.5*pi]
+];
 
-	}
-}
+/*
+  A loop object
+*/
+function InfinityLoop(){
+  var pickedColor = colors[Math.round(Math.random() * (colors.length -1))];
+  
+  this.a = Math.random() * 50 + 150;
+  //this.length = (Math.random() * 0.75 + 0.25) * pi; //Max = 2*PI
+  this.length = Math.random() * pickedColor[3] + (0.25*pi);
+  this.position = Math.random() * 2 * pi; //0.5 * pi;
+  this.speed = (2 * pi / 100) - (Math.random() * ( pi / 200));
+  this.heightAdjust = Math.random() * 0.2 + 1;
+  this.center = {
+    x: Math.random() * 20 - 10 + center[0],
+    y: Math.random() * 20 - 10 + center[1],
+  }
 
 
 
-
-
-var Quad = function(p0, p1, p2, p3) {
-
-	var scope = this;
-
-	THREE.Geometry.call(this);
-
-	scope.vertices.push(p0);
-	scope.vertices.push(p1);
-	scope.vertices.push(p2);
-	scope.vertices.push(p3);
-
-	f3(2,1,0);
-	f3(0, 3, 2);
-
-	//this.computeCentroids();
-	//this.computeFaceNormals();
-	//this.sortFacesByMaterial();
-
-	function f3(a, b, c) {
-
-		scope.faces.push(new THREE.Face3(a, b, c));
-
-	}
-
-}
-
-Quad.prototype = new THREE.Geometry();
-Quad.prototype.constructor = Quad;
-
-;function WorldLight (appScene) {
-
-    if(!appScene) throw "WorldLight needs a scene to bind to.";
-
-    //add a simple ambient light
-    var ambientLight = new THREE.AmbientLight( 0xffffff );
-
-    appScene.add(ambientLight);
-
-    // var pointLight = new THREE.PointLight(0xffffff, 100, 200);
-    // pointLight.position.set(0,100,100);
-    // appScene.add(pointLight);
-
-    // var bottomPointLight = new THREE.PointLight(0xffffff, 100, -200);
-    // bottomPointLight.position.set(0,100,100);
-    // appScene.add(bottomPointLight);
-
+  this.color = pickedColor[0];//"rgba(200, 180, 0, 0.75)";
+  this.thickness = Math.random() * pickedColor[1] + pickedColor[2];
+  
+  this.computePath = function(start, length, a) {
+    var main_points = [],
+        extruded_left_points = [],
+        extruded_right_points = [];
+    var segments = Math.round(this.length / this.speed);
     
-    return this;
+    var lastPoint = null;
+    
+    for(i=0; i<segments; i++) {
+      
+      t = this.speed * i + this.position;
+      if(t > 2 * pi) t = t - 2 * pi;
+      if(t < 0) t = 2 * pi - t;
+      
+      var main_point = lob(t, a);
+          main_point[1] = main_point[1] * this.heightAdjust + this.center.y;
+      var newPoint = {
+        x: main_point[0] + this.center.x,
+        y: main_point[1] 
+      };
+
+      if(lastPoint == null) {
+        var prevPoint = lob(t - this.speed, a);
+        prevPoint[1] = prevPoint[1] * this.heightAdjust + this.center.y;
+        lastPoint = {x: prevPoint[0] + this.center.x, y:prevPoint[1]};
+      }
+
+      var ribbonReductionIndex = ((i / (segments / 200)));
+      //ribbonReductionIndex *= (Math.cos(2*t)+1);
+      var ribbonThickness = Math.sin(pi/2*(ribbonReductionIndex / 100))*this.thickness;      
+
+      var extrudedLeftPoint = rotate_point(
+        lastPoint.x, lastPoint.y, 
+        newPoint.x, newPoint.y, 90, - ribbonThickness/2
+      );
+      extruded_left_points.push(extrudedLeftPoint);
+
+      var extrudedRightPoint = rotate_point(
+        lastPoint.x, lastPoint.y, 
+        newPoint.x, newPoint.y, 90, ribbonThickness/2
+      );
+      extruded_right_points.push(extrudedRightPoint);
+      
+      lastPoint = newPoint;
+    }
+    var points = extruded_left_points.concat(extruded_right_points.reverse());
+    
+    return points;
+  }
+  
+  this.drawPath = function() {
+    var leafPath = this.computePath(
+      this.position, 
+      this.length, 
+      this.a, 5);
+    
+    this.position += this.speed;
+    
+    ctx.fillStyle = this.color;   
+    ctx.beginPath();
+    ctx.moveTo(leafPath[0].x, leafPath[0].y);
+    for(i=1;i<leafPath.length;i++) {
+      ctx.lineTo(leafPath[i].x, leafPath[i].y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    
+    if(this.position > 2 * pi) {
+      this.position = this.position - 2 * pi;
+    }
+  }
+  
+  this.reposition = function(){
+    this.center = {
+      x: Math.random() * 20 - 10 + center[0],
+      y: Math.random() * 20 - 10 + center[1],
+    }
+  }
+  
+  this.tick = function(timestamp){
+    this.drawPath();
+  }
+  
+  return this;
 }
-;function WorldPlane (appScene) {
 
-	if(!appScene) throw "WorldPlane needs a scene to bind to.";
 
-    var planeGeometry = new THREE.PlaneGeometry(1, 1, 1, 1);
-    var planeMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, wireframe: false } );
-	var simplePlane = new THREE.Mesh(planeGeometry, planeMaterial);
 
-	appScene.add(simplePlane);
+/*
+  Get the animation started
+*/
+var Scene = function(){
+  
+  var loops = [];
+  var lastTick = 0
+  
+  for(var i=0; i<50; i++) {
+    loops.push(new InfinityLoop());
+  }
+  
+  var clearCanvas = function() {
+    ctx.fillStyle="rgba(255,255,220,.1)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+  
+  var animate = function(timestamp) {
+    /*skip frames if more than 60/second*/
+    if(timestamp - lastTick < 1000/60){
+      requestAnimationFrame(animate);
+      return;
+    }
 
-	return this;
+    clearCanvas();
+    for(var i=0; i<loops.length; i++) {
+      loops[i].tick(timestamp);
+    }
+
+
+    lastTick = timestamp;
+    requestAnimationFrame(animate);
+  }
+  
+  this.run = function() {
+    requestAnimationFrame(animate); 
+  }
+  
+  this.reset = function() {
+    loops = [];
+    lastTick = 0
+  
+    for(var i=0; i<50; i++) {
+      loops.push(new InfinityLoop());
+    }
+  }
+  
+  this.reposition = function() {
+    for(i=0; i<loops.length; i++) {
+      loops[i].reposition();
+    }
+  }
+  
+  return this;
 }
-;$(window).load(function(){
-	var app = new App();
 
-	app.initWorld();
 
-	main = app;
+var scene = new Scene();
+scene.run();
 
-	(function(){var script=document.createElement('script');script.onload=function(){var stats=new Stats();stats.domElement.style.cssText='position:fixed;left:1;top:0;z-index:100000';document.body.appendChild(stats.domElement);requestAnimationFrame(function loop(){stats.update();requestAnimationFrame(loop)});};script.src='//rawgit.com/mrdoob/stats.js/master/build/stats.min.js';document.head.appendChild(script);})()
+$(window).resize(function(){
+  canvas.width = $(window).width();
+  canvas.height = $(window).height();
+  center[0] = canvas.width/2;
+  center[1] = canvas.height/2;    
+  scene.reposition();
+}).resize();
 
-});
+function reset(){
+  scene.reset();
+}
